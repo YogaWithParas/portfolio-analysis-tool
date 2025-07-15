@@ -434,7 +434,7 @@ app.layout = dbc.Container([
         dbc.Col([
             html.Div([
                 html.H1("🚀 Interactive Portfolio Dashboard", className="text-center mb-3"),
-                html.Div(id="status-indicator", className="text-center mb-3"),
+                html.Div(id="app-status", className="text-center mb-3"),
                 dbc.Alert([
                     html.I(className="fas fa-info-circle me-2"),
                     html.Strong("💡 How to Use: "),
@@ -451,7 +451,7 @@ app.layout = dbc.Container([
                 id="loading-main-chart",
                 children=[
                     dcc.Graph(
-                        id="efficient-frontier-plot",
+                        id="investment-options-chart",
                         style={'height': '600px'},
                         config={
                             'responsive': True,
@@ -480,11 +480,11 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-chart-pie me-2"),
-                "Portfolio Allocation"
+                "Portfolio Breakdown Pie Chart"
             ], className="mb-3"),
             dcc.Loading([
                 dcc.Graph(
-                    id="portfolio-pie-chart",
+                    id="portfolio-breakdown-pie",
                     style={'height': '480px'},
                     config={
                         'responsive': True,
@@ -499,11 +499,11 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-chart-line me-2"),
-                "Portfolio Metrics"
+                "Portfolio Performance Metrics"
             ], className="mb-3"),
             dbc.Card([
                 dbc.CardBody([
-                    html.Div(id="portfolio-metrics")
+                    html.Div(id="performance-metrics")
                 ])
             ], className="metric-card h-100")
         ], width=12, lg=6, className="mb-4")
@@ -514,30 +514,30 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-table me-2"),
-                "Detailed Asset Allocation"
+                "How Your Money is Split"
             ], className="mb-3"),
             dbc.Card([
                 dbc.CardBody([
-                    html.Div(id="allocation-table", className="table-responsive")
+                    html.Div(id="money-split-table", className="table-responsive")
                 ])
             ])
         ], width=12)
     ]),
     
     # Hidden div to store click data
-    html.Div(id="click-data", style={'display': 'none'}),
+    html.Div(id="selected-point-details", style={'display': 'none'}),
     
     # File Upload Section
     dbc.Row([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-upload me-2"),
-                "Upload Custom Portfolio"
+                "Upload Your Data File"
             ], className="mb-3"),
             dbc.Card([
                 dbc.CardBody([
                     dcc.Upload(
-                        id='upload-data',
+                        id='upload-file',
                         children=html.Div([
                             html.I(className="fas fa-cloud-upload-alt fa-3x mb-3"),
                             html.Br(),
@@ -556,7 +556,7 @@ app.layout = dbc.Container([
                         },
                         multiple=False
                     ),
-                    html.Div(id='upload-status', className="mt-3"),
+                    html.Div(id='upload-status', className="mt-3"),  # (kept same for clarity)
                     html.Small([
                         html.Strong("Expected format: "),
                         "CSV with columns 'Symbol' and 'Weight' (or similar names)"
@@ -569,11 +569,11 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-chart-area me-2"),
-                "Asset Price History"
+                "Price Chart of Selected Assets"
             ], className="mb-3"),
             dcc.Loading([
                 dcc.Graph(
-                    id="asset-price-chart",
+                    id="price-chart",
                     style={'height': '400px'},
                     config={
                         'responsive': True,
@@ -590,7 +590,7 @@ app.layout = dbc.Container([
         dbc.Col([
             html.H4([
                 html.I(className="fas fa-database me-2"),
-                "Asset Data & Selection"
+                "Selected Point Details"
             ], className="mb-3"),
             dbc.Card([
                 dbc.CardBody([
@@ -598,7 +598,7 @@ app.layout = dbc.Container([
                         html.I(className="fas fa-info-circle me-2"),
                         "Click the circles to select/deselect assets for the price chart above"
                     ], className="text-info mb-3"),
-                    html.Div(id='asset-data-table')
+                    html.Div(id='asset-data-table')  # (kept same for clarity)
                 ])
             ])
         ])
@@ -608,21 +608,21 @@ app.layout = dbc.Container([
 
 # Enhanced Callbacks
 @app.callback(
-    [Output('efficient-frontier-plot', 'figure'),
-     Output('status-indicator', 'children')],
-    [Input('efficient-frontier-plot', 'id')]
+    [Output('investment-options-chart', 'figure'),
+     Output('app-status', 'children')],
+    [Input('investment-options-chart', 'id')]
 )
 def update_main_plot(_):
     """Initialize main plot with status"""
     return create_enhanced_frontier_plot(), create_status_indicator()
 
 @app.callback(
-    [Output('portfolio-pie-chart', 'figure'),
-     Output('portfolio-metrics', 'children'),
-     Output('allocation-table', 'children'),
-     Output('click-data', 'children')],
-    [Input('efficient-frontier-plot', 'clickData')],
-    [State('click-data', 'children')]
+    [Output('portfolio-breakdown-pie', 'figure'),
+     Output('performance-metrics', 'children'),
+     Output('money-split-table', 'children'),
+     Output('selected-point-details', 'children')],
+    [Input('investment-options-chart', 'clickData')],
+    [State('selected-point-details', 'children')]
 )
 def update_portfolio_display(clickData, previous_click):
     """Enhanced portfolio display with click feedback"""
@@ -968,9 +968,9 @@ def create_asset_data_table():
 @app.callback(
     [Output('upload-status', 'children'),
      Output('asset-data-table', 'children'),
-     Output('asset-price-chart', 'figure')],
-    [Input('upload-data', 'contents')],
-    [State('upload-data', 'filename')]
+     Output('price-chart', 'figure')],
+    [Input('upload-file', 'contents')],
+    [State('upload-file', 'filename')]
 )
 def handle_file_upload(contents, filename):
     """Handle file upload and update asset data"""
@@ -1021,7 +1021,7 @@ def handle_file_upload(contents, filename):
 
 # Create a single callback to handle all asset button clicks
 @app.callback(
-    [Output('asset-price-chart', 'figure', allow_duplicate=True),
+    [Output('price-chart', 'figure', allow_duplicate=True),
      Output('asset-data-table', 'children', allow_duplicate=True)],
     [Input({'type': 'asset-button', 'index': dash.ALL}, 'n_clicks')],
     [State({'type': 'asset-button', 'index': dash.ALL}, 'id')],
@@ -1054,8 +1054,8 @@ def update_asset_selection(n_clicks_list, button_ids):
 # Initialize asset data table on startup
 @app.callback(
     [Output('asset-data-table', 'children', allow_duplicate=True),
-     Output('asset-price-chart', 'figure', allow_duplicate=True)],
-    [Input('efficient-frontier-plot', 'id')],
+     Output('price-chart', 'figure', allow_duplicate=True)],
+    [Input('investment-options-chart', 'id')],
     prevent_initial_call=True
 )
 def initialize_asset_components(_):
@@ -1075,4 +1075,4 @@ print("💡 Enhanced features: File upload, asset charts, and interactive select
 
 # Start the enhanced dashboard
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=8054)
+    app.run(debug=True, host='127.0.0.1', port=8054)
