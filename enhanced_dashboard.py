@@ -427,8 +427,38 @@ def create_status_indicator():
     else:
         return html.Div()
 
+@app.callback(
+    Output("legend-container", "style"),
+    [Input("close-legend", "n_clicks")]
+)
+def hide_legend(n_clicks):
+    if n_clicks and n_clicks > 0:
+        return {"display": "none"}
+    return {}
+
 # Enhanced App Layout
 app.layout = dbc.Container([
+    dbc.Row([
+        dbc.Col([
+            html.Div([
+                html.H3("How This Tool Works", className="mb-2"),
+                dbc.Alert([
+                    html.Button("×", id="close-legend", n_clicks=0, style={"float": "right", "fontSize": "1.5rem", "border": "none", "background": "none", "cursor": "pointer"}),
+                    html.Ul([
+                        html.Li([html.B("Upload Your Data File"), " — Upload your portfolio CSV to start analysis."]),
+                        html.Li([html.B("Price Chart of Selected Assets"), " — View price history for assets you select."]),
+                        html.Li([html.B("Investment Options Chart"), " — Explore different portfolio options and risk/return tradeoffs."],),
+                        html.Li([html.B("Portfolio Breakdown Pie Chart"), " — See how your portfolio is split among assets."]),
+                        html.Li([html.B("Portfolio Performance Metrics"), " — Key numbers about your portfolio's performance."]),
+                        html.Li([html.B("How Your Money is Split"), " — Table showing allocation for each asset."]),
+                        html.Li([html.B("App Status"), " — Shows if the app is ready, loading, or has an error."]),
+                        html.Li([html.B("Selected Point Details"), " — Info about the portfolio option you clicked."]),
+                    ], className="mb-0")
+                ], color="info", className="mb-4", id="legend-alert")
+            ], id="legend-container")
+        ])
+    ]),
+    # Enhanced Header with status
     # Enhanced Header with status
     dbc.Row([
         dbc.Col([
@@ -628,47 +658,92 @@ def update_portfolio_display(clickData, previous_click):
     """Enhanced portfolio display with click feedback"""
     
     # Default case
-    if (clickData is None or 
-        app_state['efficient_frontier_results'] is None or 
-        app_state['portfolio_data'] is None):
-        
-        portfolio = app_state['portfolio_data']
-        pie_fig = create_enhanced_pie_chart(
-            portfolio['weights'], 
-            portfolio['assets'], 
-            "Your Current Portfolio"
+    # Defensive: If any required data is missing, return safe defaults
+    if (
+        clickData is None or
+        app_state.get('efficient_frontier_results') is None or
+        app_state.get('portfolio_data') is None or
+        not app_state['portfolio_data'].get('weights') or
+        not app_state['portfolio_data'].get('assets') or
+        not app_state['portfolio_data'].get('metrics')
+    ):
+        return (
+            go.Figure().add_annotation(
+                text="No portfolio data available.",
+                xref="paper", yref="paper", x=0.5, y=0.5,
+                showarrow=False, font=dict(size=14, color="red")
+            ),
+            html.Div("No metrics to display."),
+            html.Div("No allocation table to display."),
+            "default"
         )
-        
-        metrics = create_enhanced_metrics(portfolio['metrics'], "Current Portfolio")
-        table = create_enhanced_table(portfolio['weights'], portfolio['assets'])
-        
-        return pie_fig, metrics, table, "default"
+    portfolio = app_state['portfolio_data']
+    pie_fig = create_enhanced_pie_chart(
+        portfolio['weights'],
+        portfolio['assets'],
+        "Your Current Portfolio"
+    )
+    metrics = create_enhanced_metrics(portfolio['metrics'], "Current Portfolio")
+    table = create_enhanced_table(portfolio['weights'], portfolio['assets'])
+    return pie_fig, metrics, table, "default"
     
     # Handle clicks
-    point_index = clickData['points'][0]['pointIndex']
-    curve_number = clickData['points'][0].get('curveNumber', 0)
+    # Defensive: Check clickData structure
+    try:
+        point_index = clickData['points'][0]['pointIndex']
+        curve_number = clickData['points'][0].get('curveNumber', 0)
+    except Exception:
+        return (
+            go.Figure().add_annotation(
+                text="Invalid selection.",
+                xref="paper", yref="paper", x=0.5, y=0.5,
+                showarrow=False, font=dict(size=14, color="red")
+            ),
+            html.Div("No metrics to display."),
+            html.Div("No allocation table to display."),
+            "invalid-click"
+        )
     
     if curve_number == 0:  # Efficient frontier click
-        results = app_state['efficient_frontier_results']
-        clicked_weights = results['weights'][point_index]
-        clicked_return = results['returns'][point_index]
-        clicked_risk = results['risks'][point_index]
-        clicked_sharpe = results['sharpe_ratios'][point_index]
-        
+        results = app_state.get('efficient_frontier_results')
+        if not results or not results.get('weights'):
+            return (
+                go.Figure().add_annotation(
+                    text="No efficient frontier data.",
+                    xref="paper", yref="paper", x=0.5, y=0.5,
+                    showarrow=False, font=dict(size=14, color="red")
+                ),
+                html.Div("No metrics to display."),
+                html.Div("No allocation table to display."),
+                "no-frontier"
+            )
+        try:
+            clicked_weights = results['weights'][point_index]
+            clicked_return = results['returns'][point_index]
+            clicked_risk = results['risks'][point_index]
+            clicked_sharpe = results['sharpe_ratios'][point_index]
+        except Exception:
+            return (
+                go.Figure().add_annotation(
+                    text="Invalid point selection.",
+                    xref="paper", yref="paper", x=0.5, y=0.5,
+                    showarrow=False, font=dict(size=14, color="red")
+                ),
+                html.Div("No metrics to display."),
+                html.Div("No allocation table to display."),
+                "invalid-point"
+            )
         pie_fig = create_enhanced_pie_chart(
-            clicked_weights, 
+            clicked_weights,
             app_state['portfolio_data']['assets'],
             f"Selected Portfolio (Sharpe: {clicked_sharpe:.3f})"
         )
-        
         metrics = create_enhanced_metrics({
             'Expected Return (CAGR)': clicked_return,
             'Risk (Annualized Std Dev)': clicked_risk,
             'Sharpe Ratio': clicked_sharpe
         }, "Selected Portfolio")
-        
         table = create_enhanced_table(clicked_weights, app_state['portfolio_data']['assets'])
-        
         return pie_fig, metrics, table, f"frontier-{point_index}"
     
     # Handle optimal portfolio clicks (Max Sharpe, Min Vol)
@@ -774,7 +849,7 @@ def parse_uploaded_file(contents, filename):
             # Assume CSV file
             df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
             
-            # Expected format: Symbol, Weight (or Asset, Allocation, etc.)
+            # Expected format: Symbol, Weight (or similar names)
             # Try to find the right columns
             symbol_cols = ['Symbol', 'Asset', 'Ticker', 'Stock']
             weight_cols = ['Weight', 'Allocation', 'Percentage', 'Percent']
