@@ -9,6 +9,9 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A sophisticated, enterprise-ready portfolio analysis and optimization platform built with modern Python technologies. This project showcases advanced capabilities in **financial engineering**, **data science**, **web development**, and **quantitative analysis**.
+## 🎥 Demo Video
+
+[![Watch the Demo](https://img.youtube.com/vi/2a7_0IjECes/0.jpg)](https://www.youtube.com/watch?v=2a7_0IjECes)
 
 ---
 
